@@ -4,20 +4,48 @@ funz -> function
 rizz -> ???
 fizz -> ???
 ptz -> points
+bizz -> business
+avz -> average (SV)
 dizz -> distance
+savz -> still average (SV)
+sdizz -> still distance
+tarz -> target
 --]]
 GAY = false
 ITEM_WIDTH = 140
+BIZZIES = {
+    "avz",
+    "dizz",
+    "savz + avz",
+    "savz + dizz",
+    "sdizz + avz",
+    "sdizz + dizz",
+}
+TARZIES = {
+    "no",
+    "start",
+    "end",
+    "auto",
+    "otua",
+    --"zstart",
+    --"zend",
+}
 local vars = {
-    easingFunctionIndex = 1,
-    easingsIndex = 1,
+    eazFunzIndex = 1,
+    eazIndex = 1,
     rizz = 1,
-    fizz = 1,
+    fizz = 0,
     ptz = 16,
+    bizzIndex = 1,
+    savz = 1,
+    avz = 1,
+    sdizz = 69,
     dizz = 69,
+    tarzTypeIndex = 1,
+    tarz = 69,
     plotMinScale = 0,
     plotMaxScale = 1,
-    dizzesCache = {},
+    dizziesCache = {},
 }
 
 function draw()
@@ -26,28 +54,50 @@ function draw()
     setPluginAppearance()
     loadVariables()
     
-    vars.easingFunctionIndex = combo("funz", EASING_FUNCTION_NAMES, vars.easingFunctionIndex)
-    vars.easingsIndex = combo("eaz", EASINGS, vars.easingsIndex)
+    vars.eazFunzIndex = combo("funz", EAZ_FUNZIES, vars.eazFunzIndex)
+    vars.eazIndex = combo("eaz", EAZIES, vars.eazIndex)
     
     _, vars.rizz = imgui.SliderFloat("rizz", vars.rizz, 0, 10, "%.2f")
     vars.rizz = clamp(vars.rizz, 0, 999)
     
-    -- note you can ctrl + click to input between 0 and 1, but 0 gives nothing
-    _, vars.fizz = imgui.SliderFloat("fizz", vars.fizz, 1, 10, "%.2f")
-    vars.fizz = clamp(vars.fizz, 0, 999)
+    _, vars.fizz = imgui.SliderFloat("fizz", vars.fizz, -1, 2, "%.2f")
+    vars.fizz = clamp(vars.fizz, -1, 999)
     
     _, vars.ptz = imgui.InputInt("ptz", vars.ptz, 1, 1)
     vars.ptz = clamp(vars.ptz, 1, 999)
     
     if GAY and isAnyVariableChanged() then print("S!", "Gay") end -- gay
-    if isAnyVariableChanged() or #vars.dizzesCache == 0 then updateDizzesCache() end
+    if isAnyVariableChanged() or #vars.dizziesCache == 0 then updateDizziesCache() end
     
-    imgui.PlotLines("gayz", vars.dizzesCache, #vars.dizzesCache, 0, "", vars.plotMinScale,
+    imgui.PlotLines("gayz ", vars.dizziesCache, #vars.dizziesCache, 0, "", vars.plotMinScale,
             vars.plotMaxScale, {ITEM_WIDTH, 100})
     
-    _, vars.dizz = imgui.InputFloat("dizz", vars.dizz, 0, 0, "%.1f msx")
+    vars.bizzIndex = combo("bizz", BIZZIES, vars.bizzIndex)
+    local bizz = BIZZIES[vars.bizzIndex]
+    if bizz == "avz" then
+        chooseAvz()
+    elseif bizz == "dizz" then
+        chooseDizz()
+    elseif bizz == "savz + avz" then
+        chooseSavz()
+        chooseAvz()
+        chooseTarz()
+    elseif bizz == "savz + dizz" then
+        chooseSavz()
+        chooseDizz()
+        chooseTarz()
+    elseif bizz == "sdizz + avz" then
+        chooseSdizz()
+        chooseAvz()
+        chooseTarz()
+    elseif bizz == "sdizz + dizz" then
+        chooseSdizz()
+        chooseDizz()
+        chooseTarz()
+    end
     
-    if imgui.Button("rizzupass", {imgui.GetContentRegionAvailWidth(), 50}) then placeSVs() end
+    local buttonSize = {imgui.GetContentRegionAvailWidth(), 50}
+    if imgui.Button("rizzupass", buttonSize) or utils.IsKeyPressed(keys.T) then placeSVs() end
     
     saveVariables()
     state.IsWindowHovered = imgui.IsWindowHovered()
@@ -58,25 +108,138 @@ function placeSVs()
     local noteTimes = getSelectedNoteTimes()
     if #noteTimes < 2 then return end
     
+    local bizz = BIZZIES[vars.bizzIndex]
+    local isAvzBizz = bizz == "avz" or bizz == "savz + avz" or bizz == "sdizz + avz"
+    local isSavzBizz = bizz == "savz + avz" or bizz == "savz + dizz"
+    local isSdizzBizz = bizz == "sdizz + avz" or bizz == "sdizz + dizz"
+    local isStillBizz = isSavzBizz or isSdizzBizz
     local firstNoteTime = noteTimes[1]
     local lastNoteTime = noteTimes[#noteTimes]
     local svsToRemove = getSVsBetweenTimes(firstNoteTime, lastNoteTime)
     local svsToAdd = {}
-    for i = 1, #noteTimes - 1 do
-        local startTime = noteTimes[i]
-        local endTime = noteTimes[i + 1]
+    
+    local workingNoteTimes = noteTimes
+    if isStillBizz then workingNoteTimes = {firstNoteTime, lastNoteTime} end
+    for i = 1, #workingNoteTimes - 1 do
+        local startTime = workingNoteTimes[i]
+        local endTime = workingNoteTimes[i + 1]
         local totalDuration = endTime - startTime
-        local totalDizz = vars.dizz -- use totalDuration if straight
+        local totalDizz = isAvzBizz and totalDuration * vars.avz or vars.dizz
         local svDuration = totalDuration / vars.ptz
         for j = 1, vars.ptz do
             local svTime = startTime + (j - 1) * svDuration
-            local startDizzDecimal = vars.dizzesCache[j]
-            local endDizzDecimal = vars.dizzesCache[j + 1]
+            local startDizzDecimal = vars.dizziesCache[j]
+            local endDizzDecimal = vars.dizziesCache[j + 1]
             local dizzTraveledDecimal = endDizzDecimal - startDizzDecimal
             local dizzTraveled = dizzTraveledDecimal * totalDizz
             local svMultiplier = dizzTraveled / svDuration
             table.insert(svsToAdd, sv(svTime, svMultiplier))
         end
+    end
+    
+    if isStillBizz then
+        table.insert(svsToAdd, sv(lastNoteTime, 1))
+        
+        local tarzType = TARZIES[vars.tarzTypeIndex]
+        -- maybe in future make note spacing a dynamic function
+        -- like one distance function for svs/note motion, one distance function for note spacing
+        local noteSpacing = isSavzBizz and vars.savz or vars.sdizz / (lastNoteTime - firstNoteTime)
+        local tarz = vars.tarz
+        if tarzType == "auto" then
+            local multiplier = getUsableDisplacementMultiplier(firstNoteTime)
+            local duration = 1 / multiplier
+            local multiplierBefore = getSVMultiplierAt(firstNoteTime - duration)
+            tarz = multiplierBefore * duration
+            print(multiplierBefore)
+        elseif tarzType == "otua" then
+            local multiplier = getUsableDisplacementMultiplier(lastNoteTime)
+            local duration = 1 / multiplier
+            local multiplierAt = getSVMultiplierAt(lastNoteTime)
+            tarz = -multiplierAt * duration
+        end
+        
+        local totalSVDisplacement = 0
+        local svDisplacements = {}
+        local j = 1
+        for i = 1, #svsToAdd - 1 do
+            local lastSV = svsToAdd[i]
+            local nextSV = svsToAdd[i + 1]
+            local svTimeDifference = nextSV.StartTime - lastSV.StartTime
+            while nextSV.StartTime > noteTimes[j] do
+                local svToNoteTime = noteTimes[j] - lastSV.StartTime
+                local displacement = totalSVDisplacement
+                if svToNoteTime > 0 then
+                    displacement = displacement + lastSV.Multiplier * svToNoteTime
+                end
+                table.insert(svDisplacements, displacement)
+                j = j + 1
+            end
+            if svTimeDifference > 0 then
+                totalSVDisplacement = totalSVDisplacement + svTimeDifference * lastSV.Multiplier
+            end
+        end
+        table.insert(svDisplacements, totalSVDisplacement)
+        
+        local nsvDisplacements = {}
+        for i = 1, #noteTimes do
+            nsvDisplacements[i] = (noteTimes[i] - firstNoteTime) * noteSpacing
+        end
+        
+        local finalDisplacements = {}
+        for i = 1, #svDisplacements do
+            local finalDisplacement = nsvDisplacements[i] - svDisplacements[i]
+            table.insert(finalDisplacements, finalDisplacement)
+        end
+        local extraDisplacement = tarz
+        if tarzType == "end" or tarzType == "otua" then
+            extraDisplacement = tarz - finalDisplacements[#finalDisplacements]
+        end
+        if tarzType ~= "no" then
+            for i = 1, #finalDisplacements do
+                finalDisplacements[i] = finalDisplacements[i] + extraDisplacement
+            end
+        end
+        local actualFinalSVsToAdd = {}
+        local svTimeIsAdded = {}
+        j = 1
+        for i = 1, #noteTimes do
+            local noteTime = noteTimes[i]
+            local multiplier = getUsableDisplacementMultiplier(noteTime)
+            local duration = 1 / multiplier
+            if i ~= 1 then
+                local beforeDisplacement = finalDisplacements[i]
+                local timeBefore = noteTime - duration
+                svTimeIsAdded[timeBefore] = true
+                while svsToAdd[j + 1].StartTime <= timeBefore do
+                    j = j + 1
+                end
+                local currentSVMultiplier = svsToAdd[j].Multiplier
+                local newSVMultiplier = multiplier * beforeDisplacement + currentSVMultiplier
+                table.insert(actualFinalSVsToAdd, sv(timeBefore, newSVMultiplier))
+            end
+            if i ~= #noteTimes then
+                local atDisplacement = -finalDisplacements[i]
+                local timeAt = noteTime
+                svTimeIsAdded[timeAt] = true
+                while svsToAdd[j + 1].StartTime <= timeAt do
+                    j = j + 1
+                end
+                local currentSVMultiplier = svsToAdd[j].Multiplier
+                local newSVMultiplier = multiplier * atDisplacement + currentSVMultiplier
+                table.insert(actualFinalSVsToAdd, sv(timeAt, newSVMultiplier))
+                
+                local timeAfter = noteTime + duration
+                svTimeIsAdded[timeAfter] = true
+                table.insert(actualFinalSVsToAdd, sv(timeAfter, currentSVMultiplier))
+            end
+        end
+        for i = 1, #svsToAdd - 1 do
+            local sv = svsToAdd[i]
+            if svTimeIsAdded[sv.StartTime] == nil then
+                table.insert(actualFinalSVsToAdd, sv)
+            end
+        end
+        svsToAdd = actualFinalSVsToAdd
     end
     local svAtLastNoteTime = map.GetScrollVelocityAt(lastNoteTime)
     local isLastSVAddible = not (svAtLastNoteTime and svAtLastNoteTime.StartTime == lastNoteTime)
@@ -109,6 +272,27 @@ function getSVsBetweenTimes(startTime, endTime)
     end
     table.sort(svsBetweenTimes, function(a, b) return a.StartTime < b.StartTime end)
     return svsBetweenTimes
+end
+
+function getSVMultiplierAt(time)
+    local sv = map.GetScrollVelocityAt(time) 
+    if sv then return sv.Multiplier end
+    return 1
+end
+
+--[[
+-- current implementation:
+-- 64 until 2^18 = 262144 ms ~4.3 min, then —> 32
+-- 32 until 2^19 = 524288 ms ~8.7 min, then —> 16
+-- 16 until 2^20 = 1048576 ms ~17.4 min, then —> 8
+-- 8 until 2^21 = 2097152 ms ~34.9 min, then —> 4
+-- 4 until 2^22 = 4194304 ms ~69.9 min, then —> 2
+-- 2 until 2^23 = 8388608 ms ~139.8 min, then —> 1
+--]]
+function getUsableDisplacementMultiplier(time)
+    local exponent = 23 - math.floor(math.log(math.abs(time) + 1) / math.log(2))
+    if exponent > 6 then exponent = 6 end
+    return 2 ^ exponent
 end
 
 function sv(time, multiplier) return utils.CreateScrollVelocity(time, multiplier) end
@@ -154,61 +338,88 @@ function sineEaseInOut(x, a) return inOutEase(sineEaseIn, sineEaseOut)(x, a) end
 
 function sineEaseOutIn(x, a) return outInEase(sineEaseIn, sineEaseOut)(x, a) end
 
-EASING_FUNCTION_NAMES = {
+EAZ_FUNZIES = {
     "poly",
     "expo",
     "inv",
     "sin",
 }
 
-EASINGS = {
+EAZIES = {
     "ease in",
     "ease out",
     "ease in out",
     "ease out in",
 }
 
-function updateDizzesCache()
-    local easingFunctions = {}
-    easingFunctions["poly ease in"] = polynomialEaseIn
-    easingFunctions["poly ease out"] = polynomialEaseOut
-    easingFunctions["poly ease in out"] = polynomialEaseInOut
-    easingFunctions["poly ease out in"] = polynomialEaseOutIn
-    easingFunctions["expo ease in"] = exponentialEaseIn
-    easingFunctions["expo ease out"] = exponentialEaseOut
-    easingFunctions["expo ease in out"] = exponentialEaseInOut
-    easingFunctions["expo ease out in"] = exponentialEaseOutIn
-    easingFunctions["inv ease in"] = inverseEaseIn
-    easingFunctions["inv ease out"] = inverseEaseOut
-    easingFunctions["inv ease in out"] = inverseEaseInOut
-    easingFunctions["inv ease out in"] = inverseEaseOutIn
-    easingFunctions["sin ease in"] = sineEaseIn
-    easingFunctions["sin ease out"] = sineEaseOut
-    easingFunctions["sin ease in out"] = sineEaseInOut
-    easingFunctions["sin ease out in"] = sineEaseOutIn
-    local easingName = EASINGS[vars.easingsIndex]
-    local easingFunctionName = EASING_FUNCTION_NAMES[vars.easingFunctionIndex]
-    local easingFunctionKey = table.concat({easingFunctionName, " ", easingName})
-    local easingFunction = easingFunctions[easingFunctionKey] or function (x, a) return x end
-    local rootFizz = math.sqrt(vars.fizz)
-    local rootFizzless = rootFizz - 1
+function updateDizziesCache()
+    local eazDictionary = {}
+    eazDictionary["poly ease in"] = polynomialEaseIn
+    eazDictionary["poly ease out"] = polynomialEaseOut
+    eazDictionary["poly ease in out"] = polynomialEaseInOut
+    eazDictionary["poly ease out in"] = polynomialEaseOutIn
+    eazDictionary["expo ease in"] = exponentialEaseIn
+    eazDictionary["expo ease out"] = exponentialEaseOut
+    eazDictionary["expo ease in out"] = exponentialEaseInOut
+    eazDictionary["expo ease out in"] = exponentialEaseOutIn
+    eazDictionary["inv ease in"] = inverseEaseIn
+    eazDictionary["inv ease out"] = inverseEaseOut
+    eazDictionary["inv ease in out"] = inverseEaseInOut
+    eazDictionary["inv ease out in"] = inverseEaseOutIn
+    eazDictionary["sin ease in"] = sineEaseIn
+    eazDictionary["sin ease out"] = sineEaseOut
+    eazDictionary["sin ease in out"] = sineEaseInOut
+    eazDictionary["sin ease out in"] = sineEaseOutIn
+    local eazName = EAZIES[vars.eazIndex]
+    local eazFunzName = EAZ_FUNZIES[vars.eazFunzIndex]
+    local eazFunzKey = table.concat({eazFunzName, " ", eazName})
+    local eazFunz = eazDictionary[eazFunzKey] or function (x, a) return x end
+    local fizz = vars.fizz
+    local fizzed = vars.fizz + 1
     vars.plotMinScale = 0
     vars.plotMaxScale = 1
-    vars.dizzesCache = {}
+    vars.dizziesCache = {}
     for i = 0, vars.ptz do
         local x = i / vars.ptz
-        local dizz = rootFizz * easingFunction(x, vars.rizz) - rootFizzless * x
+        local dizz = fizzed * eazFunz(x, vars.rizz) - fizz * x
         vars.plotMinScale = math.min(vars.plotMinScale, dizz)
         vars.plotMaxScale = math.max(vars.plotMaxScale, dizz)
-        table.insert(vars.dizzesCache, dizz)
+        table.insert(vars.dizziesCache, dizz)
     end
 end
 
-function initializePluginWindowNotCollapsed()
-    if not state.GetValue("pluginOpen") then
-        imgui.SetNextWindowCollapsed(false)
-        state.SetValue("pluginOpen", true)
+function chooseTarz()
+    local tarz = TARZIES[vars.tarzTypeIndex]
+    local hasNoTarzValue = tarz == "no" or tarz == "auto" or tarz == "otua"
+    local indentWidth = 0.45 * ITEM_WIDTH + 14
+    if hasNoTarzValue then
+        imgui.Indent(indentWidth)
+    else
+        imgui.PushItemWidth(ITEM_WIDTH * 0.55 - 6)
+        _, vars.tarz = imgui.InputFloat("##tarz", vars.tarz, 0, 0, "%.1f msx")
+        imgui.SameLine()
+        imgui.PopItemWidth()
     end
+    imgui.PushItemWidth(ITEM_WIDTH * 0.45)
+    vars.tarzTypeIndex = combo("tarz", TARZIES, vars.tarzTypeIndex)
+    if hasNoTarzValue then imgui.Unindent(indentWidth) end
+    imgui.PopItemWidth()
+end
+
+function chooseSavz()
+    _, vars.savz = imgui.InputFloat("savz", vars.savz, 0, 0, "%.2fx")
+end
+
+function chooseAvz()
+    _, vars.avz = imgui.InputFloat("avz", vars.avz, 0, 0, "%.2fx")
+end
+
+function chooseSdizz()
+    _, vars.sdizz = imgui.InputFloat("sdizz", vars.sdizz, 0, 0, "%.1f msx")
+end
+
+function chooseDizz()
+    _, vars.dizz = imgui.InputFloat("dizz", vars.dizz, 0, 0, "%.1f msx")
 end
 
 function combo(label, list, listIndex)
@@ -247,12 +458,19 @@ function setPluginAppearance()
     imgui.PushStyleColor(imgui_col.TextSelectedBg, {0.60, 0.60, 0.60, 0.50})
     imgui.PushStyleVar(imgui_style_var.ItemSpacing, {6, 4})
     imgui.PushStyleVar(imgui_style_var.WindowPadding, {10, 8})
-    imgui.PushStyleVar(imgui_style_var.FramePadding, {8, 5})
+    imgui.PushStyleVar(imgui_style_var.FramePadding, {6, 5})
     local rounding = 8
     imgui.PushStyleVar(imgui_style_var.GrabRounding, rounding)
     imgui.PushStyleVar(imgui_style_var.WindowRounding, rounding)
     imgui.PushStyleVar(imgui_style_var.FrameRounding, rounding)
     imgui.PushItemWidth(ITEM_WIDTH)
+end
+
+function initializePluginWindowNotCollapsed()
+    if not state.GetValue("pluginOpen") then
+        imgui.SetNextWindowCollapsed(false)
+        state.SetValue("pluginOpen", true)
+    end
 end
 
 function loadVariables()
