@@ -15,11 +15,11 @@ GAY = false
 ITEM_WIDTH = 140
 BIZZIES = {
     "avz",
+    "avz + savz",
+    "avz + sdizz",
     "dizz",
-    "savz + avz",
-    "savz + dizz",
-    "sdizz + avz",
-    "sdizz + dizz",
+    "dizz + savz",
+    "dizz + sdizz",
 }
 TARZIES = {
     "no",
@@ -76,23 +76,23 @@ function draw()
     local bizz = BIZZIES[vars.bizzIndex]
     if bizz == "avz" then
         chooseAvz()
+    elseif bizz == "avz + savz" then
+        chooseAvz()
+        chooseSavz()
+        chooseTarz()
+    elseif bizz == "avz + sdizz" then
+        chooseAvz()
+        chooseSdizz()
+        chooseTarz()
     elseif bizz == "dizz" then
         chooseDizz()
-    elseif bizz == "savz + avz" then
-        chooseSavz()
-        chooseAvz()
-        chooseTarz()
-    elseif bizz == "savz + dizz" then
-        chooseSavz()
+    elseif bizz == "dizz + savz" then
         chooseDizz()
+        chooseSavz()
         chooseTarz()
-    elseif bizz == "sdizz + avz" then
-        chooseSdizz()
-        chooseAvz()
-        chooseTarz()
-    elseif bizz == "sdizz + dizz" then
-        chooseSdizz()
+    elseif bizz == "dizz + sdizz" then
         chooseDizz()
+        chooseSdizz()
         chooseTarz()
     end
     
@@ -109,9 +109,9 @@ function placeSVs()
     if #noteTimes < 2 then return end
     
     local bizz = BIZZIES[vars.bizzIndex]
-    local isAvzBizz = bizz == "avz" or bizz == "savz + avz" or bizz == "sdizz + avz"
-    local isSavzBizz = bizz == "savz + avz" or bizz == "savz + dizz"
-    local isSdizzBizz = bizz == "sdizz + avz" or bizz == "sdizz + dizz"
+    local isAvzBizz = bizz == "avz" or bizz == "avz + savz" or bizz == "avz + sdizz"
+    local isSavzBizz = bizz == "avz + savz" or bizz == "dizz + savz"
+    local isSdizzBizz = bizz == "avz + sdizz" or bizz == "dizz + sdizz"
     local isStillBizz = isSavzBizz or isSdizzBizz
     local firstNoteTime = noteTimes[1]
     local lastNoteTime = noteTimes[#noteTimes]
