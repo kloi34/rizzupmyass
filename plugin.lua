@@ -150,7 +150,6 @@ function placeSVs()
             local duration = 1 / multiplier
             local multiplierBefore = getSVMultiplierAt(firstNoteTime - duration)
             tarz = multiplierBefore * duration
-            print(multiplierBefore)
         elseif tarzType == "otua" then
             local multiplier = getUsableDisplacementMultiplier(lastNoteTime)
             local duration = 1 / multiplier
