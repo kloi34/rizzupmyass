@@ -13,7 +13,7 @@ tarz -> target
 --]]
 GAY = false
 ITEM_WIDTH = 140
-X_DISPLACEMENT = -200
+X_DISPLACEMENT = -200 -- make magnitude bigger to support LNs? keep small to maintain displacement precision
 BIZZIES = {
     "avz",
     "avz + savz",
@@ -23,7 +23,6 @@ BIZZIES = {
     "dizz + sdizz",
 }
 TARZIES = {
-    "no",
     "start",
     "end",
     "auto",
@@ -182,6 +181,15 @@ function placeSVs()
         if isXTarz then
             local tgName = state.SelectedScrollGroupId
             local tgNote = map.GetTimingGroupObjects(tgName)[1]
+            local tgNameComponents = {}
+            for str in string.gmatch(tgName, "([^|]+)") do
+                table.insert(tgNameComponents, str)
+            end
+            if #tgNameComponents ~= 3 or tgNameComponents[3] ~= "x" then
+                print("I!", "bad timing group")
+                return
+            end
+            
             if tgNote.StartTime < lastNoteTime then
                 print("I!", "gay")
                 return
@@ -217,10 +225,8 @@ function placeSVs()
         if tarzType == "end" or tarzType == "otua" or tarzType == "xend" or tarzType == "xtua" then
             extraDisplacement = extraDisplacement - finalDisplacements[#finalDisplacements]
         end
-        if tarzType ~= "no" then
-            for i = 1, #finalDisplacements do
-                finalDisplacements[i] = finalDisplacements[i] + extraDisplacement
-            end
+        for i = 1, #finalDisplacements do
+            finalDisplacements[i] = finalDisplacements[i] + extraDisplacement
         end
         if isXTarz then
             local tgName = state.SelectedScrollGroupId
@@ -229,7 +235,6 @@ function placeSVs()
                 finalDisplacements[#finalDisplacements] = finalDisplacements[#finalDisplacements] + X_DISPLACEMENT
             end
         end
-        --]]
         
         local actualFinalSVsToAdd = {}
         local svTimeIsAdded = {}
@@ -307,7 +312,7 @@ function setupNoteTG()
     end
     
     local actionType = action_type.CreateTimingGroup
-    local tgName = table.concat({note.StartTime, "|", note.Lane})
+    local tgName = getNoteTGName(note)
     local svs = {sv(-2000, 0)}
     local multiplier = getUsableDisplacementMultiplier(note.StartTime)
     local duration = 1 / multiplier
@@ -320,6 +325,8 @@ function setupNoteTG()
     actions.Perform(action)
     state.SelectedScrollGroupId = state.selectedHitObjects[1].TimingGroup
 end
+
+function getNoteTGName(note) return table.concat({note.StartTime, "|", note.Lane, "|x"}) end
 
 function getSelectedNoteTimes()
     local startTimes = {}
@@ -461,7 +468,7 @@ end
 
 function chooseTarz()
     local tarz = TARZIES[vars.tarzTypeIndex]
-    local hasNoTarzValue = tarz == "no" or tarz == "auto" or tarz == "otua"
+    local hasNoTarzValue = tarz == "auto" or tarz == "otua"
             or tarz == "xuto" or tarz == "xtua"
     local indentWidth = 0.45 * ITEM_WIDTH + 14
     if hasNoTarzValue then
