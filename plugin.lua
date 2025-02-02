@@ -130,9 +130,7 @@ function placeSVs()
     local lastNoteTime = noteTimes[#noteTimes]
     local svsToRemove = getSVsBetweenTimes(firstNoteTime, lastNoteTime)
     local svsToAdd = {}
-    
-    local workingNoteTimes = noteTimes
-    if isStillBizz then workingNoteTimes = {firstNoteTime, lastNoteTime} end
+    local workingNoteTimes = isStillBizz and {firstNoteTime, lastNoteTime} or noteTimes
     for i = 1, #workingNoteTimes - 1 do
         local startTime = workingNoteTimes[i]
         local endTime = workingNoteTimes[i + 1]
@@ -189,7 +187,6 @@ function placeSVs()
                 print("I!", "bad timing group")
                 return
             end
-            
             if tgNote.StartTime < lastNoteTime then
                 print("I!", "gay")
                 return
@@ -307,23 +304,21 @@ end
 function setupNoteTG()
     local note = state.selectedHitObjects[1]
     if note.TimingGroup ~= "$Default" then
-        state.SelectedScrollGroupId = state.selectedHitObjects[1].TimingGroup
+        state.SelectedScrollGroupId = note.TimingGroup
         return
     end
     
     local actionType = action_type.CreateTimingGroup
     local tgName = getNoteTGName(note)
-    local svs = {sv(-2000, 0)}
     local multiplier = getUsableDisplacementMultiplier(note.StartTime)
     local duration = 1 / multiplier
+    local svs = {sv(-2000, 0)}
     table.insert(svs, sv(note.StartTime - duration, multiplier * X_DISPLACEMENT))
     table.insert(svs, sv(note.StartTime, 1))
-    
     local sg = utils.CreateScrollGroup(svs)
     local sgNotes = {note}
-    local action = utils.createEditorAction(actionType, tgName, sg, sgNotes)
-    actions.Perform(action)
-    state.SelectedScrollGroupId = state.selectedHitObjects[1].TimingGroup
+    actions.Perform(utils.createEditorAction(actionType, tgName, sg, sgNotes))
+    state.SelectedScrollGroupId = note.TimingGroup
 end
 
 function getNoteTGName(note) return table.concat({note.StartTime, "|", note.Lane, "|x"}) end
@@ -353,24 +348,12 @@ function getSVsBetweenTimes(startTime, endTime)
 end
 
 function getSVMultiplierAt(time)
-    local sv = map.GetScrollVelocityAt(time) 
-    if sv then return sv.Multiplier end
-    return 1
+    local sv = map.GetScrollVelocityAt(time)
+    return sv and sv.Multiplier or 1
 end
 
---[[
--- current implementation:
--- 64 until 2^18 = 262144 ms ~4.3 min, then —> 32
--- 32 until 2^19 = 524288 ms ~8.7 min, then —> 16
--- 16 until 2^20 = 1048576 ms ~17.4 min, then —> 8
--- 8 until 2^21 = 2097152 ms ~34.9 min, then —> 4
--- 4 until 2^22 = 4194304 ms ~69.9 min, then —> 2
--- 2 until 2^23 = 8388608 ms ~139.8 min, then —> 1
---]]
 function getUsableDisplacementMultiplier(time)
-    local exponent = 23 - math.floor(math.log(math.abs(time) + 1) / math.log(2))
-    if exponent > 6 then exponent = 6 end
-    return 2 ^ exponent
+    return 2 ^ math.min(6, 23 - math.floor(math.log(math.abs(time) + 1) / math.log(2)))
 end
 
 function sv(time, multiplier) return utils.CreateScrollVelocity(time, multiplier) end
@@ -468,9 +451,8 @@ end
 
 function chooseTarz()
     local tarz = TARZIES[vars.tarzTypeIndex]
-    local hasNoTarzValue = tarz == "auto" or tarz == "otua"
-            or tarz == "xuto" or tarz == "xtua"
-    local indentWidth = 0.45 * ITEM_WIDTH + 14
+    local hasNoTarzValue = tarz == "auto" or tarz == "otua" or tarz == "xuto" or tarz == "xtua"
+    local indentWidth = ITEM_WIDTH * 0.45 + 14
     if hasNoTarzValue then
         imgui.Indent(indentWidth)
     else
@@ -481,8 +463,8 @@ function chooseTarz()
     end
     imgui.PushItemWidth(ITEM_WIDTH * 0.45)
     vars.tarzTypeIndex = combo("tarz", TARZIES, vars.tarzTypeIndex)
-    if hasNoTarzValue then imgui.Unindent(indentWidth) end
     imgui.PopItemWidth()
+    if hasNoTarzValue then imgui.Unindent(indentWidth) end
 end
 
 function chooseSavz()
@@ -513,11 +495,7 @@ function combo(label, list, listIndex)
     return newListIndex
 end
 
-function clamp(x, min, max)
-    if x < min then return min end
-    if x > max then return max end
-    return x
-end
+function clamp(x, min, max) return x < min and min or (x > max and max or x) end
 
 function setPluginAppearance()
     imgui.PushStyleColor(imgui_col.WindowBg, {0.00, 0.00, 0.15, 0.90})
