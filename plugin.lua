@@ -13,24 +13,25 @@ tarz -> target
 --]]
 GAY = false
 ITEM_WIDTH = 140
-X_DISPLACEMENT = -200 -- make magnitude bigger to support LNs? keep small to maintain displacement precision
+HALF_ITEM_WIDTH = ITEM_WIDTH / 2
+BEEG_HAF = HALF_ITEM_WIDTH + 3
+SMOL_HAF = HALF_ITEM_WIDTH - 3
+X_DISPLACEMENT = -200 -- make value larger to support LNs? keep small for precise displacement
 BIZZIES = {
     "avz",
-    "avz + savz",
-    "avz + sdizz",
     "dizz",
-    "dizz + savz",
-    "dizz + sdizz",
+}
+SBIZZIES = {
+    "no",
+    "savz",
+    "sdizz",
+    "x",
 }
 TARZIES = {
     "start",
     "end",
     "auto",
     "otua",
-    "xart",
-    "xend",
-    "xuto",
-    "xtua",
 }
 local vars = {
     eazFunzIndex = 1,
@@ -39,6 +40,7 @@ local vars = {
     fizz = 0,
     ptz = 16,
     bizzIndex = 1,
+    sbizzIndex = 1,
     savz = 1,
     avz = 1,
     sdizz = 69,
@@ -71,36 +73,47 @@ function draw()
     if GAY and isAnyVariableChanged() then print("S!", "Gay") end -- gay
     if isAnyVariableChanged() or #vars.dizziesCache == 0 then updateDizziesCache() end
     
-    imgui.PlotLines("gayz ", vars.dizziesCache, #vars.dizziesCache, 0, state.SelectedScrollGroupId,
+    imgui.PlotLines("gayz", vars.dizziesCache, #vars.dizziesCache, 0, state.SelectedScrollGroupId,
             vars.plotMinScale, vars.plotMaxScale, {ITEM_WIDTH, 100})
     
-    vars.bizzIndex = combo("bizz", BIZZIES, vars.bizzIndex)
+    imgui.PushItemWidth(SMOL_HAF)
+    
     local bizz = BIZZIES[vars.bizzIndex]
     if bizz == "avz" then
-        chooseAvz()
-    elseif bizz == "avz + savz" then
-        chooseAvz()
-        chooseSavz()
+        _, vars.avz = imgui.InputFloat("##avz", vars.avz, 0, 0, "%.2fx")
+    else
+        _, vars.dizz = imgui.InputFloat("##dizz", vars.dizz, 0, 0, "%.1f msx")
+    end
+    imgui.SameLine()
+    vars.bizzIndex = combo("bizz", BIZZIES, vars.bizzIndex)
+    
+    local sbizz = SBIZZIES[vars.sbizzIndex]
+    if sbizz == "no" then
+        imgui.Indent(BEEG_HAF)
+        vars.sbizzIndex = combo("sbizz", SBIZZIES, vars.sbizzIndex)
+        imgui.Unindent(BEEG_HAF)
+    elseif sbizz == "savz" then
+        _, vars.savz = imgui.InputFloat("##savz", vars.savz, 0, 0, "%.2fx")
+        imgui.SameLine()
+        vars.sbizzIndex = combo("sbizz", SBIZZIES, vars.sbizzIndex)
         chooseTarz()
-    elseif bizz == "avz + sdizz" then
-        chooseAvz()
-        chooseSdizz()
+    elseif sbizz == "sdizz" then
+        _, vars.sdizz = imgui.InputFloat("##sdizz", vars.sdizz, 0, 0, "%.1f msx")
+        imgui.SameLine()
+        vars.sbizzIndex = combo("sbizz", SBIZZIES, vars.sbizzIndex)
         chooseTarz()
-    elseif bizz == "dizz" then
-        chooseDizz()
-    elseif bizz == "dizz + savz" then
-        chooseDizz()
-        chooseSavz()
-        chooseTarz()
-    elseif bizz == "dizz + sdizz" then
-        chooseDizz()
-        chooseSdizz()
+    elseif sbizz == "x" then
+        imgui.Indent(BEEG_HAF)
+        vars.sbizzIndex = combo("sbizz", SBIZZIES, vars.sbizzIndex)
+        imgui.Unindent(BEEG_HAF)
         chooseTarz()
     end
     
+    imgui.PopItemWidth()
+    --[[
     local buttonSize = {imgui.GetContentRegionAvailWidth(), 50}
     if imgui.Button("rizzupass", buttonSize) or utils.IsKeyPressed(keys.T) then placeSVs() end
-    
+    --]]
     if utils.IsKeyPressed(keys.N) then deleteSVs() end
     
     local isBKeyPressed = utils.IsKeyPressed(keys.B)
@@ -120,16 +133,13 @@ function placeSVs()
     if #noteTimes < 2 then return end
     
     local bizz = BIZZIES[vars.bizzIndex]
-    local isAvzBizz = bizz == "avz" or bizz == "avz + savz" or bizz == "avz + sdizz" or bizz == "xavz"
-    local isSavzBizz = bizz == "avz + savz" or bizz == "dizz + savz"
-    local isSdizzBizz = bizz == "avz + sdizz" or bizz == "dizz + sdizz"
-    local isStillBizz = isSavzBizz or isSdizzBizz
-    local tarzType = TARZIES[vars.tarzTypeIndex]
-    local isXTarz = tarzType == "xart" or tarzType == "xend" or tarzType == "xuto" or tarzType == "xtua"
+    local isAvzBizz = bizz == "avz"
     local firstNoteTime = noteTimes[1]
     local lastNoteTime = noteTimes[#noteTimes]
     local svsToRemove = getSVsBetweenTimes(firstNoteTime, lastNoteTime)
     local svsToAdd = {}
+    local sbizz = SBIZZIES[vars.sbizzIndex]
+    local isStillBizz = sbizz ~= "no"
     local workingNoteTimes = isStillBizz and {firstNoteTime, lastNoteTime} or noteTimes
     for i = 1, #workingNoteTimes - 1 do
         local startTime = workingNoteTimes[i]
@@ -175,7 +185,9 @@ function placeSVs()
         
         -- maybe make note spacing a dynamic function in the future
         -- like one distance function for svs/note motion, one distance function for note spacing
-        local noteSpacing = isSavzBizz and vars.savz or vars.sdizz / (lastNoteTime - firstNoteTime)
+        local noteSpacing = sbizz == "savz" and vars.savz or vars.sdizz / (lastNoteTime - firstNoteTime)
+        local tarzType = TARZIES[vars.tarzTypeIndex] -- redo/remove
+        local isXTarz = tarzType == "xart" or tarzType == "xend" or tarzType == "xuto" or tarzType == "xtua" -- redo/remove
         if isXTarz then
             local tgName = state.SelectedScrollGroupId
             local tgNote = map.GetTimingGroupObjects(tgName)[1]
@@ -451,36 +463,16 @@ end
 
 function chooseTarz()
     local tarz = TARZIES[vars.tarzTypeIndex]
-    local hasNoTarzValue = tarz == "auto" or tarz == "otua" or tarz == "xuto" or tarz == "xtua"
-    local indentWidth = ITEM_WIDTH * 0.45 + 14
+    local hasNoTarzValue = tarz == "auto" or tarz == "otua"
     if hasNoTarzValue then
-        imgui.Indent(indentWidth)
+        imgui.Indent(BEEG_HAF)
+        vars.tarzTypeIndex = combo("tarz", TARZIES, vars.tarzTypeIndex)
+        imgui.Unindent(BEEG_HAF)
     else
-        imgui.PushItemWidth(ITEM_WIDTH * 0.55 - 6)
         _, vars.tarz = imgui.InputFloat("##tarz", vars.tarz, 0, 0, "%.1f msx")
         imgui.SameLine()
-        imgui.PopItemWidth()
+        vars.tarzTypeIndex = combo("tarz", TARZIES, vars.tarzTypeIndex)
     end
-    imgui.PushItemWidth(ITEM_WIDTH * 0.45)
-    vars.tarzTypeIndex = combo("tarz", TARZIES, vars.tarzTypeIndex)
-    imgui.PopItemWidth()
-    if hasNoTarzValue then imgui.Unindent(indentWidth) end
-end
-
-function chooseSavz()
-    _, vars.savz = imgui.InputFloat("savz", vars.savz, 0, 0, "%.2fx")
-end
-
-function chooseAvz()
-    _, vars.avz = imgui.InputFloat("avz", vars.avz, 0, 0, "%.2fx")
-end
-
-function chooseSdizz()
-    _, vars.sdizz = imgui.InputFloat("sdizz", vars.sdizz, 0, 0, "%.1f msx")
-end
-
-function chooseDizz()
-    _, vars.dizz = imgui.InputFloat("dizz", vars.dizz, 0, 0, "%.1f msx")
 end
 
 function combo(label, list, listIndex)
