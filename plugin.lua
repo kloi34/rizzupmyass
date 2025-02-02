@@ -123,6 +123,8 @@ function placeSVs()
     local isSavzBizz = bizz == "avz + savz" or bizz == "dizz + savz"
     local isSdizzBizz = bizz == "avz + sdizz" or bizz == "dizz + sdizz"
     local isStillBizz = isSavzBizz or isSdizzBizz
+    local tarzType = TARZIES[vars.tarzTypeIndex]
+    local isXTarz = tarzType == "xart" or tarzType == "xend"
     local firstNoteTime = noteTimes[1]
     local lastNoteTime = noteTimes[#noteTimes]
     local svsToRemove = getSVsBetweenTimes(firstNoteTime, lastNoteTime)
@@ -172,15 +174,13 @@ function placeSVs()
         end
         table.insert(svDisplacements, totalSVDisplacement)
         
-        local tarzType = TARZIES[vars.tarzTypeIndex]
-        local isXTarz = tarzType == "xart" or tarzType == "xend"
         -- maybe make note spacing a dynamic function in the future
         -- like one distance function for svs/note motion, one distance function for note spacing
         local noteSpacing = isSavzBizz and vars.savz or vars.sdizz / (lastNoteTime - firstNoteTime)
         if isXTarz then
             local tgName = state.SelectedScrollGroupId
             local tgNote = map.GetTimingGroupObjects(tgName)[1]
-            if tgNote.StartTime > lastNoteTime then
+            if tgNote.StartTime < lastNoteTime then
                 print("I!", "gay")
                 return
             end
@@ -209,6 +209,8 @@ function placeSVs()
             local duration = 1 / multiplier
             local multiplierAt = getSVMultiplierAt(lastNoteTime)
             extraDisplacement = -multiplierAt * duration
+        elseif isXTarz then
+            extraDisplacement = extraDisplacement - X_DISPLACEMENT
         end
         if tarzType == "end" or tarzType == "otua" or tarzType == "xend" then
             extraDisplacement = extraDisplacement - finalDisplacements[#finalDisplacements]
@@ -219,8 +221,13 @@ function placeSVs()
             end
         end
         if isXTarz then
-            finalDisplacements[#finalDisplacements] = finalDisplacements[#finalDisplacements] + X_DISPLACEMENT
+            local tgName = state.SelectedScrollGroupId
+            local tgNote = map.GetTimingGroupObjects(tgName)[1]
+            if tgNote.StartTime == lastNoteTime then
+                finalDisplacements[#finalDisplacements] = finalDisplacements[#finalDisplacements] + X_DISPLACEMENT
+            end
         end
+        --]]
         
         local actualFinalSVsToAdd = {}
         local svTimeIsAdded = {}
@@ -266,7 +273,8 @@ function placeSVs()
     end
     local svAtLastNoteTime = map.GetScrollVelocityAt(lastNoteTime)
     local isLastSVAddible = not (svAtLastNoteTime and svAtLastNoteTime.StartTime == lastNoteTime)
-    if isLastSVAddible then table.insert(svsToAdd, sv(lastNoteTime, 1)) end
+    local lastSVMultiplier = isXTarz and 0 or 1
+    if isLastSVAddible then table.insert(svsToAdd, sv(lastNoteTime, lastSVMultiplier)) end
     actions.PerformBatch({
             utils.CreateEditorAction(action_type.RemoveScrollVelocityBatch, svsToRemove),
             utils.CreateEditorAction(action_type.AddScrollVelocityBatch, svsToAdd)
