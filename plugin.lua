@@ -30,6 +30,8 @@ TARZIES = {
     "otua",
     "xart",
     "xend",
+    "xuto",
+    "xtua",
 }
 local vars = {
     eazFunzIndex = 1,
@@ -124,7 +126,7 @@ function placeSVs()
     local isSdizzBizz = bizz == "avz + sdizz" or bizz == "dizz + sdizz"
     local isStillBizz = isSavzBizz or isSdizzBizz
     local tarzType = TARZIES[vars.tarzTypeIndex]
-    local isXTarz = tarzType == "xart" or tarzType == "xend"
+    local isXTarz = tarzType == "xart" or tarzType == "xend" or tarzType == "xuto" or tarzType == "xtua"
     local firstNoteTime = noteTimes[1]
     local lastNoteTime = noteTimes[#noteTimes]
     local svsToRemove = getSVsBetweenTimes(firstNoteTime, lastNoteTime)
@@ -199,12 +201,12 @@ function placeSVs()
         end
         
         local extraDisplacement = vars.tarz
-        if tarzType == "auto" then
+        if tarzType == "auto" or tarzType == "xuto" then
             local multiplier = getUsableDisplacementMultiplier(firstNoteTime)
             local duration = 1 / multiplier
             local multiplierBefore = getSVMultiplierAt(firstNoteTime - duration)
             extraDisplacement = multiplierBefore * duration
-        elseif tarzType == "otua" then
+        elseif tarzType == "otua" or tarzType == "xtua" then
             local multiplier = getUsableDisplacementMultiplier(lastNoteTime)
             local duration = 1 / multiplier
             local multiplierAt = getSVMultiplierAt(lastNoteTime)
@@ -212,7 +214,7 @@ function placeSVs()
         elseif isXTarz then
             extraDisplacement = extraDisplacement - X_DISPLACEMENT
         end
-        if tarzType == "end" or tarzType == "otua" or tarzType == "xend" then
+        if tarzType == "end" or tarzType == "otua" or tarzType == "xend" or tarzType == "xtua" then
             extraDisplacement = extraDisplacement - finalDisplacements[#finalDisplacements]
         end
         if tarzType ~= "no" then
@@ -310,8 +312,7 @@ function setupNoteTG()
     local multiplier = getUsableDisplacementMultiplier(note.StartTime)
     local duration = 1 / multiplier
     table.insert(svs, sv(note.StartTime - duration, multiplier * X_DISPLACEMENT))
-    table.insert(svs, sv(note.StartTime, multiplier * -X_DISPLACEMENT))
-    table.insert(svs, sv(note.StartTime + duration, 1))
+    table.insert(svs, sv(note.StartTime, 1))
     
     local sg = utils.CreateScrollGroup(svs)
     local sgNotes = {note}
@@ -461,6 +462,7 @@ end
 function chooseTarz()
     local tarz = TARZIES[vars.tarzTypeIndex]
     local hasNoTarzValue = tarz == "no" or tarz == "auto" or tarz == "otua"
+            or tarz == "xuto" or tarz == "xtua"
     local indentWidth = 0.45 * ITEM_WIDTH + 14
     if hasNoTarzValue then
         imgui.Indent(indentWidth)
