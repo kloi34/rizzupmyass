@@ -13,6 +13,7 @@ tarz -> target
 --]]
 GAY = false
 ITEM_WIDTH = 140
+X_DISPLACEMENT = -200
 BIZZIES = {
     "avz",
     "avz + savz",
@@ -27,8 +28,8 @@ TARZIES = {
     "end",
     "auto",
     "otua",
-    --"zstart",
-    --"zend",
+    "xart",
+    "xend",
 }
 local vars = {
     eazFunzIndex = 1,
@@ -57,10 +58,10 @@ function draw()
     vars.eazFunzIndex = combo("funz", EAZ_FUNZIES, vars.eazFunzIndex)
     vars.eazIndex = combo("eaz", EAZIES, vars.eazIndex)
     
-    _, vars.rizz = imgui.SliderFloat("rizz", vars.rizz, 0, 10, "%.2f")
+    _, vars.rizz = imgui.DragFloat("rizz", vars.rizz, 0.01, 0, 999, "%.2f")
     vars.rizz = clamp(vars.rizz, 0, 999)
     
-    _, vars.fizz = imgui.SliderFloat("fizz", vars.fizz, -1, 2, "%.2f")
+    _, vars.fizz = imgui.DragFloat("fizz", vars.fizz, 0.01, -1, 999, "%.2f")
     vars.fizz = clamp(vars.fizz, -1, 999)
     
     _, vars.ptz = imgui.InputInt("ptz", vars.ptz, 1, 1)
@@ -69,8 +70,8 @@ function draw()
     if GAY and isAnyVariableChanged() then print("S!", "Gay") end -- gay
     if isAnyVariableChanged() or #vars.dizziesCache == 0 then updateDizziesCache() end
     
-    imgui.PlotLines("gayz ", vars.dizziesCache, #vars.dizziesCache, 0, "", vars.plotMinScale,
-            vars.plotMaxScale, {ITEM_WIDTH, 100})
+    imgui.PlotLines("gayz ", vars.dizziesCache, #vars.dizziesCache, 0, state.SelectedScrollGroupId,
+            vars.plotMinScale, vars.plotMaxScale, {ITEM_WIDTH, 100})
     
     vars.bizzIndex = combo("bizz", BIZZIES, vars.bizzIndex)
     local bizz = BIZZIES[vars.bizzIndex]
@@ -99,6 +100,15 @@ function draw()
     local buttonSize = {imgui.GetContentRegionAvailWidth(), 50}
     if imgui.Button("rizzupass", buttonSize) or utils.IsKeyPressed(keys.T) then placeSVs() end
     
+    if utils.IsKeyPressed(keys.N) then deleteSVs() end
+    
+    local isBKeyPressed = utils.IsKeyPressed(keys.B)
+    local isAltKeyDown = utils.IsKeyDown(keys.LeftAlt) or utils.IsKeyDown(keys.RightAlt)
+    if isBKeyPressed and #state.SelectedHitObjects == 1 and isAltKeyDown then setupNoteTG() end
+    if isBKeyPressed and #state.SelectedHitObjects == 1 and not isAltKeyDown then
+        state.SelectedScrollGroupId = state.selectedHitObjects[1].TimingGroup
+    end
+    
     saveVariables()
     state.IsWindowHovered = imgui.IsWindowHovered()
     imgui.End()
@@ -109,7 +119,7 @@ function placeSVs()
     if #noteTimes < 2 then return end
     
     local bizz = BIZZIES[vars.bizzIndex]
-    local isAvzBizz = bizz == "avz" or bizz == "avz + savz" or bizz == "avz + sdizz"
+    local isAvzBizz = bizz == "avz" or bizz == "avz + savz" or bizz == "avz + sdizz" or bizz == "xavz"
     local isSavzBizz = bizz == "avz + savz" or bizz == "dizz + savz"
     local isSdizzBizz = bizz == "avz + sdizz" or bizz == "dizz + sdizz"
     local isStillBizz = isSavzBizz or isSdizzBizz
@@ -140,23 +150,6 @@ function placeSVs()
     if isStillBizz then
         table.insert(svsToAdd, sv(lastNoteTime, 1))
         
-        local tarzType = TARZIES[vars.tarzTypeIndex]
-        -- maybe in future make note spacing a dynamic function
-        -- like one distance function for svs/note motion, one distance function for note spacing
-        local noteSpacing = isSavzBizz and vars.savz or vars.sdizz / (lastNoteTime - firstNoteTime)
-        local tarz = vars.tarz
-        if tarzType == "auto" then
-            local multiplier = getUsableDisplacementMultiplier(firstNoteTime)
-            local duration = 1 / multiplier
-            local multiplierBefore = getSVMultiplierAt(firstNoteTime - duration)
-            tarz = multiplierBefore * duration
-        elseif tarzType == "otua" then
-            local multiplier = getUsableDisplacementMultiplier(lastNoteTime)
-            local duration = 1 / multiplier
-            local multiplierAt = getSVMultiplierAt(lastNoteTime)
-            tarz = -multiplierAt * duration
-        end
-        
         local totalSVDisplacement = 0
         local svDisplacements = {}
         local j = 1
@@ -179,6 +172,21 @@ function placeSVs()
         end
         table.insert(svDisplacements, totalSVDisplacement)
         
+        local tarzType = TARZIES[vars.tarzTypeIndex]
+        local isXTarz = tarzType == "xart" or tarzType == "xend"
+        -- maybe make note spacing a dynamic function in the future
+        -- like one distance function for svs/note motion, one distance function for note spacing
+        local noteSpacing = isSavzBizz and vars.savz or vars.sdizz / (lastNoteTime - firstNoteTime)
+        if isXTarz then
+            local tgName = state.SelectedScrollGroupId
+            local tgNote = map.GetTimingGroupObjects(tgName)[1]
+            if tgNote.StartTime > lastNoteTime then
+                print("I!", "gay")
+                return
+            end
+            noteSpacing = 0
+        end
+        
         local nsvDisplacements = {}
         for i = 1, #noteTimes do
             nsvDisplacements[i] = (noteTimes[i] - firstNoteTime) * noteSpacing
@@ -189,15 +197,31 @@ function placeSVs()
             local finalDisplacement = nsvDisplacements[i] - svDisplacements[i]
             table.insert(finalDisplacements, finalDisplacement)
         end
-        local extraDisplacement = tarz
-        if tarzType == "end" or tarzType == "otua" then
-            extraDisplacement = tarz - finalDisplacements[#finalDisplacements]
+        
+        local extraDisplacement = vars.tarz
+        if tarzType == "auto" then
+            local multiplier = getUsableDisplacementMultiplier(firstNoteTime)
+            local duration = 1 / multiplier
+            local multiplierBefore = getSVMultiplierAt(firstNoteTime - duration)
+            extraDisplacement = multiplierBefore * duration
+        elseif tarzType == "otua" then
+            local multiplier = getUsableDisplacementMultiplier(lastNoteTime)
+            local duration = 1 / multiplier
+            local multiplierAt = getSVMultiplierAt(lastNoteTime)
+            extraDisplacement = -multiplierAt * duration
+        end
+        if tarzType == "end" or tarzType == "otua" or tarzType == "xend" then
+            extraDisplacement = extraDisplacement - finalDisplacements[#finalDisplacements]
         end
         if tarzType ~= "no" then
             for i = 1, #finalDisplacements do
                 finalDisplacements[i] = finalDisplacements[i] + extraDisplacement
             end
         end
+        if isXTarz then
+            finalDisplacements[#finalDisplacements] = finalDisplacements[#finalDisplacements] + X_DISPLACEMENT
+        end
+        
         local actualFinalSVsToAdd = {}
         local svTimeIsAdded = {}
         j = 1
@@ -247,6 +271,45 @@ function placeSVs()
             utils.CreateEditorAction(action_type.RemoveScrollVelocityBatch, svsToRemove),
             utils.CreateEditorAction(action_type.AddScrollVelocityBatch, svsToAdd)
     })
+end
+
+function deleteSVs()
+    local noteTimes = getSelectedNoteTimes()
+    if #noteTimes < 2 then return end
+    
+    local firstNoteTime = noteTimes[1]
+    local lastNoteTime = noteTimes[#noteTimes]
+    local svsToRemove = getSVsBetweenTimes(firstNoteTime, lastNoteTime)
+    if #svsToRemove == 0 then return end
+    
+    local svsToAdd = getSVMultiplierAt(firstNoteTime - 1) == 1 and {} or {sv(firstNoteTime, 1)}
+    actions.PerformBatch({
+            utils.CreateEditorAction(action_type.RemoveScrollVelocityBatch, svsToRemove),
+            utils.CreateEditorAction(action_type.AddScrollVelocityBatch, svsToAdd)
+    })
+end
+
+function setupNoteTG()
+    local note = state.selectedHitObjects[1]
+    if note.TimingGroup ~= "$Default" then
+        state.SelectedScrollGroupId = state.selectedHitObjects[1].TimingGroup
+        return
+    end
+    
+    local actionType = action_type.CreateTimingGroup
+    local tgName = table.concat({note.StartTime, "|", note.Lane})
+    local svs = {sv(-2000, 0)}
+    local multiplier = getUsableDisplacementMultiplier(note.StartTime)
+    local duration = 1 / multiplier
+    table.insert(svs, sv(note.StartTime - duration, multiplier * X_DISPLACEMENT))
+    table.insert(svs, sv(note.StartTime, multiplier * -X_DISPLACEMENT))
+    table.insert(svs, sv(note.StartTime + duration, 1))
+    
+    local sg = utils.CreateScrollGroup(svs)
+    local sgNotes = {note}
+    local action = utils.createEditorAction(actionType, tgName, sg, sgNotes)
+    actions.Perform(action)
+    state.SelectedScrollGroupId = state.selectedHitObjects[1].TimingGroup
 end
 
 function getSelectedNoteTimes()
@@ -451,8 +514,6 @@ function setPluginAppearance()
     imgui.PushStyleColor(imgui_col.Button, {0.00, 0.30, 0.35, 0.80})
     imgui.PushStyleColor(imgui_col.ButtonHovered, {0.00, 0.40, 0.45, 0.80})
     imgui.PushStyleColor(imgui_col.ButtonActive, {0.00, 0.50, 0.55, 0.80})
-    imgui.PushStyleColor(imgui_col.SliderGrab, {0.00, 0.00, 0.15, 0.90})
-    imgui.PushStyleColor(imgui_col.SliderGrabActive, {0.00, 0.00, 0.15, 0.90})
     imgui.PushStyleColor(imgui_col.Text, {0.40, 1.00, 0.60, 1.00})
     imgui.PushStyleColor(imgui_col.TextSelectedBg, {0.60, 0.60, 0.60, 0.50})
     imgui.PushStyleVar(imgui_style_var.ItemSpacing, {6, 4})
@@ -466,10 +527,9 @@ function setPluginAppearance()
 end
 
 function initializePluginWindowNotCollapsed()
-    if not state.GetValue("pluginOpen") then
-        imgui.SetNextWindowCollapsed(false)
-        state.SetValue("pluginOpen", true)
-    end
+    if state.GetValue("pluginOpen") then return end
+    imgui.SetNextWindowCollapsed(false)
+    state.SetValue("pluginOpen", true)
 end
 
 function loadVariables()
@@ -480,8 +540,7 @@ end
 
 function isAnyVariableChanged()
     for key, currentValue in pairs(vars) do
-        local oldValue = state.GetValue(key)
-        if oldValue ~= currentValue then return true end
+        if state.GetValue(key) ~= currentValue then return true end
     end
     return false
 end
