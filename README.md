@@ -30,7 +30,7 @@ basically, when a note is in x timing group, it will sit offscreen below the hit
 at -200 msx (or whatever number is hardcoded) until it needs to get hit.
 this makes the note invisible the whole time.
 to show the note, you can first select the note's timing group,
-then place svs using an x still (sbizz) to show the note onscreen.
+then place svs using an x still (x sbizz) to show the note onscreen.
 this is useful for note animation because you can move notes at the end of the map
 into their own x timing groups and show them at any time during the map.
 just remember that the notes become invisible, so make sure you use an x still
