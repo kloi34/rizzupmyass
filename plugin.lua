@@ -4,7 +4,9 @@ funz -> function
 rizz -> ???
 fizz -> ???
 ptz -> points
+gayz -> gaze
 bizz -> business
+sbizz -> still business
 avz -> average (SV)
 dizz -> distance
 savz -> still average (SV)
@@ -110,10 +112,10 @@ function draw()
     end
     
     imgui.PopItemWidth()
-    --[[
+    
     local buttonSize = {imgui.GetContentRegionAvailWidth(), 50}
     if imgui.Button("rizzupass", buttonSize) or utils.IsKeyPressed(keys.T) then placeSVs() end
-    --]]
+    
     if utils.IsKeyPressed(keys.N) then deleteSVs() end
     
     local isBKeyPressed = utils.IsKeyPressed(keys.B)
@@ -139,6 +141,7 @@ function placeSVs()
     local svsToRemove = getSVsBetweenTimes(firstNoteTime, lastNoteTime)
     local svsToAdd = {}
     local sbizz = SBIZZIES[vars.sbizzIndex]
+    local isXTarz = sbizz == "x"
     local isStillBizz = sbizz ~= "no"
     local workingNoteTimes = isStillBizz and {firstNoteTime, lastNoteTime} or noteTimes
     for i = 1, #workingNoteTimes - 1 do
@@ -167,7 +170,6 @@ function placeSVs()
         for i = 1, #svsToAdd - 1 do
             local lastSV = svsToAdd[i]
             local nextSV = svsToAdd[i + 1]
-            local svTimeDifference = nextSV.StartTime - lastSV.StartTime
             while nextSV.StartTime > noteTimes[j] do
                 local svToNoteTime = noteTimes[j] - lastSV.StartTime
                 local displacement = totalSVDisplacement
@@ -177,25 +179,22 @@ function placeSVs()
                 table.insert(svDisplacements, displacement)
                 j = j + 1
             end
-            if svTimeDifference > 0 then
-                totalSVDisplacement = totalSVDisplacement + svTimeDifference * lastSV.Multiplier
-            end
+            local svTimeDifference = nextSV.StartTime - lastSV.StartTime
+            totalSVDisplacement = totalSVDisplacement + svTimeDifference * lastSV.Multiplier
         end
         table.insert(svDisplacements, totalSVDisplacement)
         
         -- maybe make note spacing a dynamic function in the future
         -- like one distance function for svs/note motion, one distance function for note spacing
-        local noteSpacing = sbizz == "savz" and vars.savz or vars.sdizz / (lastNoteTime - firstNoteTime)
-        local tarzType = TARZIES[vars.tarzTypeIndex] -- redo/remove
-        local isXTarz = tarzType == "xart" or tarzType == "xend" or tarzType == "xuto" or tarzType == "xtua" -- redo/remove
-        if isXTarz then
+        local noteSpacing
+        if sbizz == "savz" then
+            noteSpacing = vars.savz
+        elseif sbizz == "sdizz" then
+            noteSpacing = vars.sdizz / (lastNoteTime - firstNoteTime)
+        elseif isXTarz then
             local tgName = state.SelectedScrollGroupId
             local tgNote = map.GetTimingGroupObjects(tgName)[1]
-            local tgNameComponents = {}
-            for str in string.gmatch(tgName, "([^|]+)") do
-                table.insert(tgNameComponents, str)
-            end
-            if #tgNameComponents ~= 3 or tgNameComponents[3] ~= "x" then
+            if tgName ~= getNoteXTGName(tgNote) then
                 print("I!", "bad timing group")
                 return
             end
@@ -217,21 +216,24 @@ function placeSVs()
             table.insert(finalDisplacements, finalDisplacement)
         end
         
+        local tarzType = TARZIES[vars.tarzTypeIndex]
         local extraDisplacement = vars.tarz
-        if tarzType == "auto" or tarzType == "xuto" then
+        if tarzType == "auto" then
             local multiplier = getUsableDisplacementMultiplier(firstNoteTime)
             local duration = 1 / multiplier
             local multiplierBefore = getSVMultiplierAt(firstNoteTime - duration)
             extraDisplacement = multiplierBefore * duration
-        elseif tarzType == "otua" or tarzType == "xtua" then
+            if isXTarz and extraDisplacement == 0 then extraDisplacement = -X_DISPLACEMENT end
+        elseif tarzType == "otua" then
             local multiplier = getUsableDisplacementMultiplier(lastNoteTime)
             local duration = 1 / multiplier
             local multiplierAt = getSVMultiplierAt(lastNoteTime)
             extraDisplacement = -multiplierAt * duration
+            if isXTarz and extraDisplacement == 0 then extraDisplacement = -X_DISPLACEMENT end
         elseif isXTarz then
             extraDisplacement = extraDisplacement - X_DISPLACEMENT
         end
-        if tarzType == "end" or tarzType == "otua" or tarzType == "xend" or tarzType == "xtua" then
+        if tarzType == "end" or tarzType == "otua" then
             extraDisplacement = extraDisplacement - finalDisplacements[#finalDisplacements]
         end
         for i = 1, #finalDisplacements do
@@ -321,19 +323,19 @@ function setupNoteTG()
     end
     
     local actionType = action_type.CreateTimingGroup
-    local tgName = getNoteTGName(note)
+    local tgName = getNoteXTGName(note)
     local multiplier = getUsableDisplacementMultiplier(note.StartTime)
     local duration = 1 / multiplier
-    local svs = {sv(-2000, 0)}
-    table.insert(svs, sv(note.StartTime - duration, multiplier * X_DISPLACEMENT))
-    table.insert(svs, sv(note.StartTime, 1))
+    local svs = {sv(-5000, 0)}
+    svs[2] = sv(note.StartTime - duration, multiplier * X_DISPLACEMENT)
+    svs[3] = sv(note.StartTime, 1)
     local sg = utils.CreateScrollGroup(svs)
     local sgNotes = {note}
     actions.Perform(utils.createEditorAction(actionType, tgName, sg, sgNotes))
     state.SelectedScrollGroupId = note.TimingGroup
 end
 
-function getNoteTGName(note) return table.concat({note.StartTime, "|", note.Lane, "|x"}) end
+function getNoteXTGName(note) return table.concat({note.StartTime, "|", note.Lane, "|x"}) end
 
 function getSelectedNoteTimes()
     local startTimes = {}
@@ -425,28 +427,30 @@ EAZIES = {
     "ease out in",
 }
 
+local eaz_dict = { 
+    ["poly ease in"] = polynomialEaseIn,
+    ["poly ease out"] = polynomialEaseOut,
+    ["poly ease in out"] = polynomialEaseInOut,
+    ["poly ease out in"] = polynomialEaseOutIn,
+    ["expo ease in"] = exponentialEaseIn,
+    ["expo ease out"] = exponentialEaseOut,
+    ["expo ease in out"] = exponentialEaseInOut,
+    ["expo ease out in"] = exponentilEaseOutIn,
+    ["inv ease in"] = inverseEaseIn,
+    ["inv ease out"] = inverseEaseOut,
+    ["inv ease in out"] = inverseEaseInOut,
+    ["inv ease out in"] = inverseEaseOutIn,
+    ["sin ease in"] = sineEaseIn,
+    ["sin ease out"] = sineEaseOut,
+    ["sin ease in out"] = sineEaseInOut,
+    ["sin ease out in"] = sineEaseOutIn,
+}
+
 function updateDizziesCache()
-    local eazDictionary = {}
-    eazDictionary["poly ease in"] = polynomialEaseIn
-    eazDictionary["poly ease out"] = polynomialEaseOut
-    eazDictionary["poly ease in out"] = polynomialEaseInOut
-    eazDictionary["poly ease out in"] = polynomialEaseOutIn
-    eazDictionary["expo ease in"] = exponentialEaseIn
-    eazDictionary["expo ease out"] = exponentialEaseOut
-    eazDictionary["expo ease in out"] = exponentialEaseInOut
-    eazDictionary["expo ease out in"] = exponentialEaseOutIn
-    eazDictionary["inv ease in"] = inverseEaseIn
-    eazDictionary["inv ease out"] = inverseEaseOut
-    eazDictionary["inv ease in out"] = inverseEaseInOut
-    eazDictionary["inv ease out in"] = inverseEaseOutIn
-    eazDictionary["sin ease in"] = sineEaseIn
-    eazDictionary["sin ease out"] = sineEaseOut
-    eazDictionary["sin ease in out"] = sineEaseInOut
-    eazDictionary["sin ease out in"] = sineEaseOutIn
     local eazName = EAZIES[vars.eazIndex]
     local eazFunzName = EAZ_FUNZIES[vars.eazFunzIndex]
     local eazFunzKey = table.concat({eazFunzName, " ", eazName})
-    local eazFunz = eazDictionary[eazFunzKey] or function (x, a) return x end
+    local eazFunz = eaz_dict[eazFunzKey] or function (x, a) return x end
     local fizz = vars.fizz
     local fizzed = vars.fizz + 1
     vars.plotMinScale = 0
@@ -463,8 +467,7 @@ end
 
 function chooseTarz()
     local tarz = TARZIES[vars.tarzTypeIndex]
-    local hasNoTarzValue = tarz == "auto" or tarz == "otua"
-    if hasNoTarzValue then
+    if tarz == "auto" or tarz == "otua" then
         imgui.Indent(BEEG_HAF)
         vars.tarzTypeIndex = combo("tarz", TARZIES, vars.tarzTypeIndex)
         imgui.Unindent(BEEG_HAF)
