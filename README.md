@@ -5,11 +5,24 @@ the ultimate community-driven and open-source competitive rhythm game.
 an alternative, stripped down clone of [amoguSV](https://github.com/kloi34/amoguSV)
 and, by extension, somewhat worse version of [plumoguSV](https://github.com/ESV-Sweetplum/plumoguSV).
 
+guide to slang (assming you're already familiar with amoguSV or plumoguSV):
+- eaz = ease
+- funz = function
+- rizz = ???
+- fizz = ???
+- ptz = points
+- bizz = business
+- avz = average (SV)
+- dizz = distance
+- savz = still average (SV)
+- sdizz = still distance
+- tarz = target
+
 secret sauce keyboard shortcuts:
-- t : place svs between selected notes
-- n : delete svs between selected notes
-- b : set current timing group to the single selected note's timing group
-- alt + b : prepare a single selected note as an x timing group
+- `t` : place svs between selected notes
+- `n` : delete svs between selected notes
+- `b` : set current timing group to the single selected note's timing group
+- `alt + b` : prepare a single selected note as an x timing group
 
 basically, when a note is in x timing group, it will sit offscreen below the hit receptor
 at -200 msx (or whatever number is hardcoded) until it needs to get hit.
