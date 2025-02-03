@@ -11,7 +11,9 @@ guide to slang (assming you're already familiar with amoguSV or plumoguSV):
 - rizz = ???
 - fizz = ???
 - ptz = points
+- gayz = gaze
 - bizz = business
+- sbizz = still business
 - avz = average (SV)
 - dizz = distance
 - savz = still average (SV)
