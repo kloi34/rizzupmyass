@@ -1,5 +1,5 @@
 # rizzupmyass
-plugin to rizz up your ass map in [Quaver](https://github.com/Quaver),
+sv plugin to rizz up your ass map in [Quaver](https://github.com/Quaver),
 the ultimate community-driven and open-source competitive rhythm game.
 
 an alternative, stripped down clone of [amoguSV](https://github.com/kloi34/amoguSV)
