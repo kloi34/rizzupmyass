@@ -5,6 +5,10 @@ the ultimate community-driven and open-source competitive rhythm game.
 an alternative, stripped down clone of [amoguSV](https://github.com/kloi34/amoguSV)
 and, by extension, somewhat worse version of [plumoguSV](https://github.com/ESV-Sweetplum/plumoguSV).
 
+note for users:
+- the widgets where you need to double click to enter values (e.g. rizz or fizz) you can actually click-drag for minor adjustments
+- the text on the graph is the current selected timing group
+
 guide to slang (assming you're already familiar with amoguSV or plumoguSV):
 - eaz = ease
 - funz = function
