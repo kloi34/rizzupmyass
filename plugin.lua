@@ -50,7 +50,7 @@ local vars = {
     tarzTypeIndex = 1,
     tarz = 69,
     plotMinScale = 0,
-    plotMaxScale = 1,
+    plotMaxScale = 0,
     dizziesCache = {},
 }
 
@@ -58,7 +58,6 @@ function draw()
     initializePluginWindowNotCollapsed()
     imgui.Begin("rizzupmyass", imgui_window_flags.AlwaysAutoResize)
     setPluginAppearance()
-    loadVariables()
     
     vars.eazFunzIndex = combo("funz", EAZ_FUNZIES, vars.eazFunzIndex)
     vars.eazIndex = combo("eaz", EAZIES, vars.eazIndex)
@@ -73,7 +72,7 @@ function draw()
     vars.ptz = clamp(vars.ptz, 1, 999)
     
     if GAY and isAnyVariableChanged() then print("S!", "Gay") end -- gay
-    if isAnyVariableChanged() or #vars.dizziesCache == 0 then updateDizziesCache() end
+    if isAnyVariableChanged() then updateDizziesCache() end
     
     imgui.PlotLines("gayz", vars.dizziesCache, #vars.dizziesCache, 0, state.SelectedScrollGroupId,
             vars.plotMinScale, vars.plotMaxScale, {ITEM_WIDTH, 100})
@@ -120,7 +119,7 @@ function draw()
     
     local isBKeyPressed = utils.IsKeyPressed(keys.B)
     local isAltKeyDown = utils.IsKeyDown(keys.LeftAlt) or utils.IsKeyDown(keys.RightAlt)
-    if isBKeyPressed and #state.SelectedHitObjects == 1 and isAltKeyDown then setupNoteTG() end
+    if isBKeyPressed and #state.SelectedHitObjects == 1 and isAltKeyDown then setupXTG() end
     if isBKeyPressed and #state.SelectedHitObjects == 1 and not isAltKeyDown then
         state.SelectedScrollGroupId = state.selectedHitObjects[1].TimingGroup
     end
@@ -195,7 +194,7 @@ function placeSVs()
             local tgName = state.SelectedScrollGroupId
             local tgNote = map.GetTimingGroupObjects(tgName)[1]
             if tgName ~= getNoteXTGName(tgNote) then
-                print("I!", "bad timing group")
+                print("I!", "x timing group not selected")
                 return
             end
             if tgNote.StartTime < lastNoteTime then
@@ -315,7 +314,7 @@ function deleteSVs()
     })
 end
 
-function setupNoteTG()
+function setupXTG()
     local note = state.selectedHitObjects[1]
     if note.TimingGroup ~= "$Default" then
         state.SelectedScrollGroupId = note.TimingGroup
@@ -454,7 +453,7 @@ function updateDizziesCache()
     local fizz = vars.fizz
     local fizzed = vars.fizz + 1
     vars.plotMinScale = 0
-    vars.plotMaxScale = 1
+    vars.plotMaxScale = 0
     vars.dizziesCache = {}
     for i = 0, vars.ptz do
         local x = i / vars.ptz
@@ -520,12 +519,6 @@ function initializePluginWindowNotCollapsed()
     if state.GetValue("pluginOpen") then return end
     imgui.SetNextWindowCollapsed(false)
     state.SetValue("pluginOpen", true)
-end
-
-function loadVariables()
-    for key, value in pairs(vars) do
-        vars[key] = state.GetValue(key) or value
-    end
 end
 
 function isAnyVariableChanged()
