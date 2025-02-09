@@ -2,6 +2,7 @@
 eaz -> ease
 funz -> function
 rizz -> ???
+gizz -> king gizzard and the lizard wizard (???)
 fizz -> ???
 ptz -> points
 gayz -> gaze
@@ -39,6 +40,7 @@ local vars = {
     eazFunzIndex = 1,
     eazIndex = 1,
     rizz = 1,
+    gizz = 1,
     fizz = 0,
     ptz = 16,
     bizzIndex = 1,
@@ -60,13 +62,26 @@ function draw()
     setPluginAppearance()
     
     vars.eazFunzIndex = combo("funz", EAZ_FUNZIES, vars.eazFunzIndex)
-    vars.eazIndex = combo("eaz", EAZIES, vars.eazIndex)
     
-    _, vars.rizz = imgui.DragFloat("rizz", vars.rizz, 0.01, 0, 999, "%.2f")
-    vars.rizz = clamp(vars.rizz, 0, 999)
-    
-    _, vars.fizz = imgui.DragFloat("fizz", vars.fizz, 0.01, -1, 999, "%.2f")
-    vars.fizz = clamp(vars.fizz, -1, 999)
+    local eazFunz = EAZ_FUNZIES[vars.eazFunzIndex]
+    if eazFunz == "rey" then
+        _, vars.rizz = imgui.DragFloat("rizz", vars.rizz, 0.01, 0, 999, "%.2f")
+        vars.rizz = clamp(vars.rizz, 0, 999)
+        
+        _, vars.gizz = imgui.DragFloat("gizz", vars.gizz, 0.01, 0, 999, "%.2f")
+        vars.gizz = clamp(vars.gizz, 0, 999)
+        
+        _, vars.fizz = imgui.DragFloat("fizz", vars.fizz, 0.01, -999, 999, "%.2f")
+        vars.fizz = clamp(vars.fizz, -999, 999)
+    else
+        vars.eazIndex = combo("eaz", EAZIES, vars.eazIndex)
+        
+        _, vars.rizz = imgui.DragFloat("rizz", vars.rizz, 0.01, 0, 999, "%.2f")
+        vars.rizz = clamp(vars.rizz, 0, 999)
+        
+        _, vars.fizz = imgui.DragFloat("fizz", vars.fizz, 0.01, -1, 999, "%.2f")
+        vars.fizz = clamp(vars.fizz, -1, 999)
+    end
     
     _, vars.ptz = imgui.InputInt("ptz", vars.ptz, 1, 1)
     vars.ptz = clamp(vars.ptz, 1, 999)
@@ -193,7 +208,7 @@ function placeSVs()
         elseif isXTarz then
             local tgName = state.SelectedScrollGroupId
             local tgNote = map.GetTimingGroupObjects(tgName)[1]
-            if tgName ~= getNoteXTGName(tgNote) then
+            if tgName ~= getXTGName(tgNote) then
                 print("I!", "x timing group not selected")
                 return
             end
@@ -322,7 +337,7 @@ function setupXTG()
     end
     
     local actionType = action_type.CreateTimingGroup
-    local tgName = getNoteXTGName(note)
+    local tgName = getXTGName(note)
     local multiplier = getUsableDisplacementMultiplier(note.StartTime)
     local duration = 1 / multiplier
     local svs = {sv(-5000, 0)}
@@ -334,7 +349,7 @@ function setupXTG()
     state.SelectedScrollGroupId = note.TimingGroup
 end
 
-function getNoteXTGName(note) return table.concat({note.StartTime, "|", note.Lane, "|x"}) end
+function getXTGName(note) return table.concat({note.StartTime, "|", note.Lane, "|x"}) end
 
 function getSelectedNoteTimes()
     local startTimes = {}
@@ -412,11 +427,29 @@ function sineEaseInOut(x, a) return inOutEase(sineEaseIn, sineEaseOut)(x, a) end
 
 function sineEaseOutIn(x, a) return outInEase(sineEaseIn, sineEaseOut)(x, a) end
 
+function circEaseIn(x, a) return a == 0 and x or 1 - math.sqrt(1 - math.pow(x, a)) end
+
+function circEaseOut(x, a) return flipEase(circEaseIn)(x, a) end
+
+function circEaseInOut(x, a) return inOutEase(circEaseIn, circEaseOut)(x, a) end
+
+function circEaseOutIn(x, a) return outInEase(circEaseIn, circEaseOut)(x, a) end
+
+-- easing function based on Maverick Reynolds' article:
+-- https://medium.com/@mcreynolds02/a-new-family-of-easing-functions-391821670a60
+function reynoldsEase(x, a, b)
+    if a == 0 or b == 0 then return x end
+    return 1 / (1 + math.pow(a, 2) * math.pow((1 / x) - 1, b))
+end
+
+
 EAZ_FUNZIES = {
     "poly",
     "expo",
     "inv",
     "sin",
+    "circ",
+    "rey",
 }
 
 EAZIES = {
@@ -443,13 +476,19 @@ local eaz_dict = {
     ["sin ease out"] = sineEaseOut,
     ["sin ease in out"] = sineEaseInOut,
     ["sin ease out in"] = sineEaseOutIn,
+    ["circ ease in"] = circEaseIn,
+    ["circ ease out"] = circEaseOut,
+    ["circ ease in out"] = circEaseInOut,
+    ["circ ease out in"] = circEaseOutIn,
 }
 
 function updateDizziesCache()
-    local eazName = EAZIES[vars.eazIndex]
     local eazFunzName = EAZ_FUNZIES[vars.eazFunzIndex]
+    local eazName = EAZIES[vars.eazIndex]
     local eazFunzKey = table.concat({eazFunzName, " ", eazName})
     local eazFunz = eaz_dict[eazFunzKey] or function (x, a) return x end
+    local isReyEaz = eazFunzName == "rey"
+    if isReyEaz then eazFunz = reynoldsEase end
     local fizz = vars.fizz
     local fizzed = vars.fizz + 1
     vars.plotMinScale = 0
@@ -457,7 +496,8 @@ function updateDizziesCache()
     vars.dizziesCache = {}
     for i = 0, vars.ptz do
         local x = i / vars.ptz
-        local dizz = fizzed * eazFunz(x, vars.rizz) - fizz * x
+        local funzRez = isReyEaz and eazFunz(x, vars.rizz, vars.gizz) or eazFunz(x, vars.rizz)
+        local dizz = fizzed * funzRez - fizz * x
         vars.plotMinScale = math.min(vars.plotMinScale, dizz)
         vars.plotMaxScale = math.max(vars.plotMaxScale, dizz)
         table.insert(vars.dizziesCache, dizz)
