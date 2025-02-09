@@ -46,6 +46,10 @@ local vars = {
     eazIndex = 1,
     rizz = 1,
     gizz = 1,
+    x1 = 0,
+    y1 = 0,
+    x2 = 0,
+    y2 = 1,
     fizz = 0,
     ptz = 16,
     bizzIndex = 1,
@@ -81,6 +85,29 @@ function draw()
         
         _, vars.gizz = imgui.DragFloat("gizz", vars.gizz, 0.01, 0, 999, "%.2f")
         vars.gizz = clamp(vars.gizz, 0, 999)
+        
+        _, vars.fizz = imgui.DragFloat("fizz", vars.fizz, 0.01, -999, 999, "%.2f")
+        vars.fizz = clamp(vars.fizz, -999, 999)
+    elseif eazFunz == "bez" then
+        imgui.PushItemWidth(SMOL_HAF)
+        
+        _, vars.x1 = imgui.DragFloat("##x1", vars.x1, 0.01, 0, 1, "%.2f")
+        vars.x1 = clamp(vars.x1, 0, 1)
+        
+        imgui.SameLine()
+        
+        _, vars.y1 = imgui.DragFloat("pt1", vars.y1, 0.01, -1, 2, "%.2f")
+        vars.y1 = clamp(vars.y1, -1, 2)
+        
+        _, vars.x2 = imgui.DragFloat("##x2", vars.x2, 0.01, 0, 1, "%.2f")
+        vars.x2 = clamp(vars.x2, 0, 1)
+        
+        imgui.SameLine()
+        
+        _, vars.y2 = imgui.DragFloat("pt2", vars.y2, 0.01, -1, 2, "%.2f")
+        vars.y2 = clamp(vars.y2, -1, 2)
+        
+        imgui.PopItemWidth()
         
         _, vars.fizz = imgui.DragFloat("fizz", vars.fizz, 0.01, -999, 999, "%.2f")
         vars.fizz = clamp(vars.fizz, -999, 999)
@@ -481,6 +508,28 @@ function reynoldsEase(x, a, b)
     return 1 / (1 + math.pow(a, 2) * math.pow((1 / x) - 1, b))
 end
 
+function simplifiedCubicBezier(p2, p3, t)
+    return 3 * t * (1 - t)^2 * p2 + 3 * t^2 * (1 - t) * p3 + t^3
+end
+
+function cubicBezierEase(x, x1, y1, x2, y2)
+    if x == 0 or x == 1 then return x end
+    
+    local timeGuess = 0.5
+    for i = 1, 20 do
+        local timeIncrement = 0.5 ^ (i + 1)
+        local xPositionGuess = simplifiedCubicBezier(x1, x2, timeGuess)
+        if xPositionGuess < x then
+            timeGuess = timeGuess + timeIncrement
+        elseif xPositionGuess > x then
+            timeGuess = timeGuess - timeIncrement
+        else
+            return simplifiedCubicBezier(y1, y2, timeGuess)
+        end
+    end
+    return simplifiedCubicBezier(y1, y2, timeGuess)
+end
+
 EAZ_FUNZIES = {
     "poly",
     "expo",
@@ -489,6 +538,7 @@ EAZ_FUNZIES = {
     "circ",
     "elaz",
     "rey",
+    "bez",
 }
 
 EAZIES = {
@@ -532,6 +582,8 @@ function updateDizziesCache()
     local eazFunz = eaz_dict[eazFunzKey] or function (x, a) return x end
     local isReyEaz = eazFunzName == "rey"
     if isReyEaz then eazFunz = reynoldsEase end
+    local isBezEaz = eazFunzName == "bez"
+    if isBezEaz then eazFunz = cubicBezierEase end
     local isTwoParameters = isReyEaz or eazFunzName == "elaz"
     local isZeroEnd = ONE_ZEROES[vars.oneZeroIndex] == "zero"
     
@@ -542,11 +594,30 @@ function updateDizziesCache()
     vars.dizziesCache = {}
     for i = 0, vars.ptz do
         local x = i / vars.ptz
-        local funzRez = isTwoParameters and eazFunz(x, vars.rizz, vars.gizz) or eazFunz(x, vars.rizz)
+        local funzRez
+        if isBezEaz then
+            funzRez = eazFunz(x, vars.x1, vars.y1, vars.x2, vars.y2)
+        elseif isTwoParameters then
+            funzRez = eazFunz(x, vars.rizz, vars.gizz) 
+        else
+            funzRez = eazFunz(x, vars.rizz)
+        end
         local dizz = isZeroEnd and fizzed * funzRez - fizz * math.pow(x, 3) - x or fizzed * funzRez - fizz * x
         vars.plotMinScale = math.min(vars.plotMinScale, dizz)
         vars.plotMaxScale = math.max(vars.plotMaxScale, dizz)
         table.insert(vars.dizziesCache, dizz)
+    end
+    if isZeroEnd then
+        local absMax = math.max(math.abs(vars.plotMinScale), math.abs(vars.plotMaxScale))
+        if absMax == 0 then return end
+        
+        local scalingFactor = 1 / absMax
+        vars.plotMinScale = vars.plotMinScale / absMax
+        vars.plotMaxScale = vars.plotMaxScale / absMax
+        
+        for i = 0, vars.ptz do
+            vars.dizziesCache[i + 1] = vars.dizziesCache[i + 1] / absMax
+        end
     end
 end
 
