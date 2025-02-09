@@ -13,6 +13,7 @@ guide to slang (assuming you're already familiar with amoguSV or plumoguSV):
 - eaz = ease
 - funz = function
 - rizz = ???
+- gizz = king gizzard and the lizard wizard (???)
 - fizz = ???
 - ptz = points
 - gayz = gaze
