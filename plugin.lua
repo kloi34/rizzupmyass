@@ -20,6 +20,10 @@ HALF_ITEM_WIDTH = ITEM_WIDTH / 2
 BEEG_HAF = HALF_ITEM_WIDTH + 3
 SMOL_HAF = HALF_ITEM_WIDTH - 3
 X_DISPLACEMENT = -200 -- make value larger to support LNs? keep small for precise displacement
+ONE_ZEROES = {
+    "one",
+    "zero",
+}
 BIZZIES = {
     "avz",
     "dizz",
@@ -38,6 +42,7 @@ TARZIES = {
 }
 local vars = {
     eazFunzIndex = 1,
+    oneZeroIndex = 1,
     eazIndex = 1,
     rizz = 1,
     gizz = 1,
@@ -61,8 +66,14 @@ function draw()
     imgui.Begin("rizzupmyass", imgui_window_flags.AlwaysAutoResize)
     setPluginAppearance()
     
-    vars.eazFunzIndex = combo("funz", EAZ_FUNZIES, vars.eazFunzIndex)
+    imgui.PushItemWidth(SMOL_HAF)
+    vars.eazFunzIndex = combo("##eazFunz", EAZ_FUNZIES, vars.eazFunzIndex)
+    imgui.SameLine()
+    vars.oneZeroIndex = combo("funz", ONE_ZEROES, vars.oneZeroIndex)
     
+    imgui.PopItemWidth()
+    
+    local isZeroEnd = ONE_ZEROES[vars.oneZeroIndex] == "zero"
     local eazFunz = EAZ_FUNZIES[vars.eazFunzIndex]
     if eazFunz == "rey" then
         _, vars.rizz = imgui.DragFloat("rizz", vars.rizz, 0.01, 0, 999, "%.2f")
@@ -79,8 +90,9 @@ function draw()
         _, vars.rizz = imgui.DragFloat("rizz", vars.rizz, 0.01, 0, 999, "%.2f")
         vars.rizz = clamp(vars.rizz, 0, 999)
         
-        _, vars.fizz = imgui.DragFloat("fizz", vars.fizz, 0.01, -1, 999, "%.2f")
-        vars.fizz = clamp(vars.fizz, -1, 999)
+        local min = isZeroEnd and -999 or -1
+        _, vars.fizz = imgui.DragFloat("fizz", vars.fizz, 0.01, min, 999, "%.2f")
+        vars.fizz = clamp(vars.fizz, min, 999)
     end
     
     _, vars.ptz = imgui.InputInt("ptz", vars.ptz, 1, 1)
@@ -489,6 +501,8 @@ function updateDizziesCache()
     local eazFunz = eaz_dict[eazFunzKey] or function (x, a) return x end
     local isReyEaz = eazFunzName == "rey"
     if isReyEaz then eazFunz = reynoldsEase end
+    local isZeroEnd = ONE_ZEROES[vars.oneZeroIndex] == "zero"
+    
     local fizz = vars.fizz
     local fizzed = vars.fizz + 1
     vars.plotMinScale = 0
@@ -497,7 +511,7 @@ function updateDizziesCache()
     for i = 0, vars.ptz do
         local x = i / vars.ptz
         local funzRez = isReyEaz and eazFunz(x, vars.rizz, vars.gizz) or eazFunz(x, vars.rizz)
-        local dizz = fizzed * funzRez - fizz * x
+        local dizz = isZeroEnd and fizzed * funzRez - fizz * math.pow(x, 3) - x or fizzed * funzRez - fizz * x
         vars.plotMinScale = math.min(vars.plotMinScale, dizz)
         vars.plotMaxScale = math.max(vars.plotMaxScale, dizz)
         table.insert(vars.dizziesCache, dizz)
