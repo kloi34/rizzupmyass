@@ -90,6 +90,11 @@ function draw()
         _, vars.rizz = imgui.DragFloat("rizz", vars.rizz, 0.01, 0, 999, "%.2f")
         vars.rizz = clamp(vars.rizz, 0, 999)
         
+        if eazFunz == "elaz" then
+            _, vars.gizz = imgui.DragFloat("gizz", vars.gizz, 0.01, 0, 999, "%.2f")
+            vars.gizz = clamp(vars.gizz, 0, 999)
+        end
+        
         local min = isZeroEnd and -999 or -1
         _, vars.fizz = imgui.DragFloat("fizz", vars.fizz, 0.01, min, 999, "%.2f")
         vars.fizz = clamp(vars.fizz, min, 999)
@@ -447,6 +452,28 @@ function circEaseInOut(x, a) return inOutEase(circEaseIn, circEaseOut)(x, a) end
 
 function circEaseOutIn(x, a) return outInEase(circEaseIn, circEaseOut)(x, a) end
 
+function elasticEaseInFunction(b)
+    return function(x, a)
+        if a == 0 then return x * math.cos(math.pi * b * (1 - x)) end
+        return math.pow(x, 2) * math.cos(math.pi * b * (1 - x)) / (x * (1 - a) + a) end
+end
+
+function elasticEaseIn(x, a, b) return elasticEaseInFunction(b)(x, a) end
+
+function elasticEaseOut(x, a, b) return flipEase(elasticEaseInFunction(b))(x, a) end
+
+function elasticEaseInOut(x, a, b)
+    local easeInFunction = elasticEaseInFunction(b)
+    local easeOutFunction = flipEase(elasticEaseInFunction(b))
+    return inOutEase(easeInFunction, easeOutFunction)(x, a)
+end
+
+function elasticEaseOutIn(x, a, b)
+    local easeInFunction = elasticEaseInFunction(b)
+    local easeOutFunction = flipEase(elasticEaseInFunction(b))
+    return outInEase(easeInFunction, easeOutFunction)(x, a)
+end
+
 -- easing function based on Maverick Reynolds' article:
 -- https://medium.com/@mcreynolds02/a-new-family-of-easing-functions-391821670a60
 function reynoldsEase(x, a, b)
@@ -454,13 +481,13 @@ function reynoldsEase(x, a, b)
     return 1 / (1 + math.pow(a, 2) * math.pow((1 / x) - 1, b))
 end
 
-
 EAZ_FUNZIES = {
     "poly",
     "expo",
     "inv",
     "sin",
     "circ",
+    "elaz",
     "rey",
 }
 
@@ -492,6 +519,10 @@ local eaz_dict = {
     ["circ ease out"] = circEaseOut,
     ["circ ease in out"] = circEaseInOut,
     ["circ ease out in"] = circEaseOutIn,
+    ["elaz ease in"] = elasticEaseIn,
+    ["elaz ease out"] = elasticEaseOut,
+    ["elaz ease in out"] = elasticEaseInOut,
+    ["elaz ease out in"] = elasticEaseOutIn,
 }
 
 function updateDizziesCache()
@@ -501,6 +532,7 @@ function updateDizziesCache()
     local eazFunz = eaz_dict[eazFunzKey] or function (x, a) return x end
     local isReyEaz = eazFunzName == "rey"
     if isReyEaz then eazFunz = reynoldsEase end
+    local isTwoParameters = isReyEaz or eazFunzName == "elaz"
     local isZeroEnd = ONE_ZEROES[vars.oneZeroIndex] == "zero"
     
     local fizz = vars.fizz
@@ -510,7 +542,7 @@ function updateDizziesCache()
     vars.dizziesCache = {}
     for i = 0, vars.ptz do
         local x = i / vars.ptz
-        local funzRez = isReyEaz and eazFunz(x, vars.rizz, vars.gizz) or eazFunz(x, vars.rizz)
+        local funzRez = isTwoParameters and eazFunz(x, vars.rizz, vars.gizz) or eazFunz(x, vars.rizz)
         local dizz = isZeroEnd and fizzed * funzRez - fizz * math.pow(x, 3) - x or fizzed * funzRez - fizz * x
         vars.plotMinScale = math.min(vars.plotMinScale, dizz)
         vars.plotMaxScale = math.max(vars.plotMaxScale, dizz)
