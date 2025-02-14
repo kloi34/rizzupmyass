@@ -19,7 +19,7 @@ ITEM_WIDTH = 140
 HALF_ITEM_WIDTH = ITEM_WIDTH / 2
 BEEG_HAF = HALF_ITEM_WIDTH + 3
 SMOL_HAF = HALF_ITEM_WIDTH - 3
-X_DISPLACEMENT = -200 -- make value larger to support LNs? keep small for precise displacement
+X_DISPLACEMENT = -200
 ONE_ZEROES = {
     "one",
     "zero",
@@ -245,6 +245,7 @@ function placeSVs()
         -- maybe make note spacing a dynamic function in the future
         -- like one distance function for svs/note motion, one distance function for note spacing
         local noteSpacing
+        local xDisplacement
         if sbizz == "savz" then
             noteSpacing = vars.savz
         elseif sbizz == "sdizz" then
@@ -261,6 +262,7 @@ function placeSVs()
                 return
             end
             noteSpacing = 0
+            xDisplacement = getXDisplacement(tgNote)
         end
         
         local nsvDisplacements = {}
@@ -281,15 +283,15 @@ function placeSVs()
             local duration = 1 / multiplier
             local multiplierBefore = getSVMultiplierAt(firstNoteTime - duration)
             extraDisplacement = multiplierBefore * duration
-            if isXTarz and extraDisplacement == 0 then extraDisplacement = -X_DISPLACEMENT end
+            if isXTarz and extraDisplacement == 0 then extraDisplacement = -xDisplacement end
         elseif tarzType == "otua" then
             local multiplier = getUsableDisplacementMultiplier(lastNoteTime)
             local duration = 1 / multiplier
             local multiplierAt = getSVMultiplierAt(lastNoteTime)
             extraDisplacement = -multiplierAt * duration
-            if isXTarz and extraDisplacement == 0 then extraDisplacement = -X_DISPLACEMENT end
+            if isXTarz and extraDisplacement == 0 then extraDisplacement = -xDisplacement end
         elseif isXTarz then
-            extraDisplacement = extraDisplacement - X_DISPLACEMENT
+            extraDisplacement = extraDisplacement - xDisplacement
         end
         if tarzType == "end" or tarzType == "otua" then
             extraDisplacement = extraDisplacement - finalDisplacements[#finalDisplacements]
@@ -301,7 +303,7 @@ function placeSVs()
             local tgName = state.SelectedScrollGroupId
             local tgNote = map.GetTimingGroupObjects(tgName)[1]
             if tgNote.StartTime == lastNoteTime then
-                finalDisplacements[#finalDisplacements] = finalDisplacements[#finalDisplacements] + X_DISPLACEMENT
+                finalDisplacements[#finalDisplacements] = finalDisplacements[#finalDisplacements] + xDisplacement
             end
         end
         
@@ -385,7 +387,7 @@ function setupXTG()
     local multiplier = getUsableDisplacementMultiplier(note.StartTime)
     local duration = 1 / multiplier
     local svs = {sv(-5000, 0)}
-    svs[2] = sv(note.StartTime - duration, multiplier * X_DISPLACEMENT)
+    svs[2] = sv(note.StartTime - duration, multiplier * getXDisplacement(note))
     svs[3] = sv(note.StartTime, 1)
     local sg = utils.CreateScrollGroup(svs)
     local sgNotes = {note}
@@ -394,6 +396,12 @@ function setupXTG()
 end
 
 function getXTGName(note) return table.concat({note.StartTime, "|", note.Lane, "|x"}) end
+
+-- for LNs, should actually calculate sv distance between note.StartTime and note.EndTime
+-- to get correct value (note.EndTime - note.StartTime is bad/breaks if avg sv during LN > 1.00x).
+function getXDisplacement(note)
+    return note.EndTime == 0 and X_DISPLACEMENT or X_DISPLACEMENT - (note.EndTime - note.StartTime)
+end
 
 function getSelectedNoteTimes()
     local startTimes = {}
@@ -504,8 +512,7 @@ end
 -- easing function based on Maverick Reynolds' article:
 -- https://medium.com/@mcreynolds02/a-new-family-of-easing-functions-391821670a60
 function reynoldsEase(x, a, b)
-    if a == 0 or b == 0 then return x end
-    return 1 / (1 + math.pow(a, 2) * math.pow((1 / x) - 1, b))
+    return (a == 0 or b == 0) and x or 1 / (1 + math.pow(a, 2) * math.pow((1 / x) - 1, b))
 end
 
 function simplifiedCubicBezier(p2, p3, t)
