@@ -8,6 +8,7 @@ and, by extension, somewhat worse version of [plumoguSV](https://github.com/ESV-
 note for users:
 - the widgets where you need to double click to enter values (e.g. rizz or fizz) you can actually click-drag for minor adjustments
 - the text on the graph is the current selected timing group
+- you can hover over different parts of the graph to get numerical values and a better sense of the overall shape
 
 guide to slang (assuming you're already familiar with amoguSV or plumoguSV):
 - eaz = ease
